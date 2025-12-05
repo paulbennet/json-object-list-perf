@@ -1,0 +1,48 @@
+# Git ignore file for JSON Performance Benchmark project
+
+# Maven build output
+target/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+.mvn/timing.properties
+.mvn/wrapper/maven-wrapper.jar
+
+# IDE files
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+.classpath
+.project
+.settings/
+*.swp
+*.swo
+*~
+
+# JMH generated files
+jmh-result.json
+
+# Benchmark results (keep directory structure)
+results/*.json
+results/*.csv
+results/*.txt
+results/*.html
+!results/.gitkeep
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Log files
+*.log
+
+# Temporary files
+*.tmp
+*.bak
+.playwright-mcp
