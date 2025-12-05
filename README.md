@@ -11,6 +11,27 @@ This project benchmarks JSON serialization performance for calendar event data u
 
 The benchmark simulates a web server sending large numbers of calendar events as JSON responses.
 
+## Benchmark Type & Metrics
+
+### Benchmark Type
+
+- **Microbenchmark harness** built with [JMH](https://openjdk.org/projects/code-tools/jmh/) and defined in [CalendarEventBenchmark.java](src/main/java/com/zoho/perf/benchmark/CalendarEventBenchmark.java)
+- **Serialization focus**: measures how quickly a batch of `CalendarEvent` objects can be turned into JSON strings via `OrgJsonEventSerializer` (object model) versus `StringBuilderEventSerializer` (streaming builder)
+- **Dataset-driven**: uses `EventDataGenerator` to synthesize realistic meetings sized from 100 to 50,000 events so the benchmark reflects production payloads
+- **Dual modes**: each invocation runs in both `Mode.Throughput` (ops/sec) and `Mode.AverageTime` (ms/op) so engineers can compare latency and throughput under identical JVM settings
+
+### Metrics Captured
+
+- **Throughput (ops/sec)** and **Average Time (ms/op)** from the primary JMH metrics for each serializer/eventCount pair
+- **Allocation rate (bytes/op) and MB/sec)** plus **GC count/time** captured through `-prof gc` and surfaced in [results/benchmark-results.json](results/benchmark-results.json) and the generated HTML report
+- **Win/loss summaries, charts, and allocation tables** rendered by [HtmlReportGenerator](src/main/java/com/zoho/perf/report/HtmlReportGenerator.java) to highlight trend lines at a glance
+
+### Processes & Automation
+
+- **Full pipeline**: [run-benchmark.sh](run-benchmark.sh) cleans, packages, runs validation tests, executes the complete JMH suite with GC profiling, and produces HTML output
+- **Progress monitoring**: [check-progress.sh](check-progress.sh) tells you whether the benchmark JVM is still running and how many result entries have been written so far
+- **Manual workflows**: you can invoke `target/benchmarks.jar` with custom `@Param` values or JMH filters and regenerate reports directly via `HtmlReportGenerator` for previously captured JSON output
+
 ## Requirements
 
 - **Java 21 LTS** or higher
