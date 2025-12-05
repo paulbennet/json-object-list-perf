@@ -1,13 +1,13 @@
-package com.zoho.perf.benchmark;
+package com.benchmark.perf.benchmark;
 
-import com.zoho.perf.generator.EventDataGenerator;
-import com.zoho.perf.model.CalendarEvent;
-import com.zoho.perf.serializer.GsonEventSerializer;
-import com.zoho.perf.serializer.JacksonDatabindEventSerializer;
-import com.zoho.perf.serializer.JacksonStreamingEventSerializer;
-import com.zoho.perf.serializer.MoshiEventSerializer;
-import com.zoho.perf.serializer.OrgJsonEventSerializer;
-import com.zoho.perf.serializer.StringBuilderEventSerializer;
+import com.benchmark.perf.generator.EventDataGenerator;
+import com.benchmark.perf.model.CalendarEvent;
+import com.benchmark.perf.serializer.GsonEventSerializer;
+import com.benchmark.perf.serializer.JacksonDatabindEventSerializer;
+import com.benchmark.perf.serializer.JacksonStreamingEventSerializer;
+import com.benchmark.perf.serializer.MoshiEventSerializer;
+import com.benchmark.perf.serializer.OrgJsonEventSerializer;
+import com.benchmark.perf.serializer.StringBuilderEventSerializer;
 import org.openjdk.jmh.annotations.*;
 import org.openjdk.jmh.infra.Blackhole;
 

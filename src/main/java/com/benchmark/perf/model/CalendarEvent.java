@@ -1,4 +1,4 @@
-package com.zoho.perf.model;
+package com.benchmark.perf.model;
 
 import java.time.LocalDateTime;
 import java.util.List;

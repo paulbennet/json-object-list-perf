@@ -1,6 +1,6 @@
-package com.zoho.perf.serializer;
+package com.benchmark.perf.serializer;
 
-import com.zoho.perf.model.CalendarEvent;
+import com.benchmark.perf.model.CalendarEvent;
 import com.squareup.moshi.JsonAdapter;
 import com.squareup.moshi.JsonReader;
 import com.squareup.moshi.JsonWriter;

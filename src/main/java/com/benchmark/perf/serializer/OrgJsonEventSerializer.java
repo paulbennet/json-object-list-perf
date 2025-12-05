@@ -1,6 +1,6 @@
-package com.zoho.perf.serializer;
+package com.benchmark.perf.serializer;
 
-import com.zoho.perf.model.CalendarEvent;
+import com.benchmark.perf.model.CalendarEvent;
 import org.json.JSONArray;
 import org.json.JSONObject;
 

@@ -19,7 +19,7 @@ The benchmark simulates a web server sending large numbers of calendar events as
 
 ### Benchmark Type
 
-- **Microbenchmark harness** built with [JMH](https://openjdk.org/projects/code-tools/jmh/) and defined in [CalendarEventBenchmark.java](src/main/java/com/zoho/perf/benchmark/CalendarEventBenchmark.java)
+- **Microbenchmark harness** built with [JMH](https://openjdk.org/projects/code-tools/jmh/) and defined in [CalendarEventBenchmark.java](src/main/java/com/benchmark/perf/benchmark/CalendarEventBenchmark.java)
 - **Serialization focus**: measures how quickly a batch of `CalendarEvent` objects can be turned into JSON strings via six discrete benchmark methods (org.json, thread-local StringBuilder, Jackson databind, Jackson streaming, Gson, Moshi)
 - **Dataset-driven**: uses `EventDataGenerator` to synthesize realistic meetings sized from 100 to 50,000 events so the benchmark reflects production payloads
 - **Dual modes**: each invocation runs in both `Mode.Throughput` (ops/sec) and `Mode.AverageTime` (ms/op) so engineers can compare latency and throughput under identical JVM settings
@@ -28,7 +28,7 @@ The benchmark simulates a web server sending large numbers of calendar events as
 
 - **Throughput (ops/sec)** and **Average Time (ms/op)** from the primary JMH metrics for each serializer/eventCount pair
 - **Allocation rate (bytes/op) and MB/sec)** plus **GC count/time** captured through `-prof gc` and surfaced in [results/benchmark-results.json](results/benchmark-results.json) and the generated HTML report
-- **Win/loss summaries, charts, and allocation tables** rendered by [HtmlReportGenerator](src/main/java/com/zoho/perf/report/HtmlReportGenerator.java) to highlight trend lines at a glance
+- **Win/loss summaries, charts, and allocation tables** rendered by [HtmlReportGenerator](src/main/java/com/benchmark/perf/report/HtmlReportGenerator.java) to highlight trend lines at a glance
 
 ### Processes & Automation
 
@@ -46,7 +46,7 @@ The benchmark simulates a web server sending large numbers of calendar events as
 
 ```
 json-object-list-perf/
-├── src/main/java/com/zoho/perf/
+├── src/main/java/com/benchmark/perf/
 │   ├── model/              # CalendarEvent data model
 │   ├── generator/          # Test data generation
 │   ├── serializer/         # org.json, StringBuilder, Jackson, Gson, Moshi strategies + registry
@@ -169,7 +169,7 @@ mvn test
 
 ### Modify Warmup/Measurement Iterations
 
-Edit [CalendarEventBenchmark.java](src/main/java/com/zoho/perf/benchmark/CalendarEventBenchmark.java):
+Edit [CalendarEventBenchmark.java](src/main/java/com/benchmark/perf/benchmark/CalendarEventBenchmark.java):
 
 ```java
 @Param({"3"})  // Change warmup iterations
@@ -196,7 +196,7 @@ Edit [run-benchmark.sh](run-benchmark.sh) or modify `@Fork` annotation:
 
 ### Tune Thread-Local Buffer Capacity
 
-- `ThreadLocalBufferProvider` (see [src/main/java/com/zoho/perf/serializer/ThreadLocalBufferProvider.java](src/main/java/com/zoho/perf/serializer/ThreadLocalBufferProvider.java)) seeds 16 KB `StringBuilder`s and 32 KB byte arrays per thread.
+- `ThreadLocalBufferProvider` (see [src/main/java/com/benchmark/perf/serializer/ThreadLocalBufferProvider.java](src/main/java/com/benchmark/perf/serializer/ThreadLocalBufferProvider.java)) seeds 16 KB `StringBuilder`s and 32 KB byte arrays per thread.
 - Increase these constants if you benchmark payloads with extremely large descriptions or want to minimize growth operations.
 - Decrease them if you run many benchmark threads concurrently and want to cap total thread-local memory.
 
@@ -267,7 +267,7 @@ Check that `results/benchmark-results.json` exists and is valid JSON
 ### Generate Report from Existing Results
 
 ```bash
-java -cp target/benchmarks.jar com.zoho.perf.report.HtmlReportGenerator \
+java -cp target/benchmarks.jar com.benchmark.perf.report.HtmlReportGenerator \
     results/benchmark-results.json \
     results/custom-report.html
 ```
@@ -288,11 +288,11 @@ java -jar target/benchmarks.jar -rf json -rff results/benchmark-$(date +%Y%m%d-%
 
 ## License
 
-Internal Zoho project for calendar team performance analysis.
+MIT License - Open source performance benchmarking tool.
 
 ## Authors
 
-Zoho Calendar Team - Performance Engineering
+Performance Engineering Contributors
 
 ---
 

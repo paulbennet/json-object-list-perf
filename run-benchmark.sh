@@ -43,7 +43,7 @@ echo ""
 
 # Step 4: Generate HTML report
 echo "[4/4] Generating HTML report..."
-java -cp target/benchmarks.jar com.zoho.perf.report.HtmlReportGenerator \
+java -cp target/benchmarks.jar com.benchmark.perf.report.HtmlReportGenerator \
     results/benchmark-results.json \
     results/report.html
 

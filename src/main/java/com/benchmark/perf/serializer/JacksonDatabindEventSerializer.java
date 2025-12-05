@@ -1,10 +1,10 @@
-package com.zoho.perf.serializer;
+package com.benchmark.perf.serializer;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import com.zoho.perf.model.CalendarEvent;
+import com.benchmark.perf.model.CalendarEvent;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;

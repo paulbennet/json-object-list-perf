@@ -1,7 +1,7 @@
-package com.zoho.perf.serializer;
+package com.benchmark.perf.serializer;
 
-import com.zoho.perf.model.CalendarEvent;
-import com.zoho.perf.util.JsonUtils;
+import com.benchmark.perf.model.CalendarEvent;
+import com.benchmark.perf.util.JsonUtils;
 
 import java.time.format.DateTimeFormatter;
 import java.util.List;

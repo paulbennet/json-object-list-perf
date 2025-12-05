@@ -1,8 +1,8 @@
-package com.zoho.perf.serializer;
+package com.benchmark.perf.serializer;
 
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
-import com.zoho.perf.model.CalendarEvent;
+import com.benchmark.perf.model.CalendarEvent;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;

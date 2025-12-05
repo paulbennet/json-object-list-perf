@@ -1,4 +1,4 @@
-package com.zoho.perf.serializer;
+package com.benchmark.perf.serializer;
 
 import java.io.ByteArrayOutputStream;
 

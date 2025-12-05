@@ -1,4 +1,4 @@
-package com.zoho.perf.serializer;
+package com.benchmark.perf.serializer;
 
 import java.util.List;
 import java.util.Map;

@@ -1,4 +1,4 @@
-package com.zoho.perf.util;
+package com.benchmark.perf.util;
 
 import org.json.JSONArray;
 import org.json.JSONException;

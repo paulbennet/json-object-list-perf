@@ -37,7 +37,7 @@ else
         echo "  - Completed benchmarks: $RESULTS_COUNT"
         echo ""
         echo "To generate/regenerate the HTML report, run:"
-        echo "  mvn exec:java -Dexec.mainClass=\"com.zoho.perf.report.HtmlReportGenerator\" -Dexec.args=\"results/benchmark-results.json results/report.html\""
+        echo "  mvn exec:java -Dexec.mainClass=\"com.benchmark.perf.report.HtmlReportGenerator\" -Dexec.args=\"results/benchmark-results.json results/report.html\""
     else
         echo "No benchmark results found. Run './run-benchmark.sh' to start a benchmark."
     fi

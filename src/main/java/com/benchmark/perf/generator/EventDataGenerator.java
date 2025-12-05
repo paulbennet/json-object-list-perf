@@ -1,8 +1,8 @@
-package com.zoho.perf.generator;
+package com.benchmark.perf.generator;
 
-import com.zoho.perf.model.CalendarEvent;
-import com.zoho.perf.model.CalendarEvent.EventStatus;
-import com.zoho.perf.model.CalendarEvent.RecurrenceRule;
+import com.benchmark.perf.model.CalendarEvent;
+import com.benchmark.perf.model.CalendarEvent.EventStatus;
+import com.benchmark.perf.model.CalendarEvent.RecurrenceRule;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -36,7 +36,7 @@ public class EventDataGenerator {
     };
 
     private static final String[] DOMAINS = {
-            "zoho.com", "company.com", "enterprise.org", "tech.io", "startup.ai"
+            "company.com", "enterprise.org", "tech.io", "startup.ai", "business.net"
     };
 
     private static final String[] DESCRIPTION_TEMPLATES = {

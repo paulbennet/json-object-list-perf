@@ -1,10 +1,10 @@
-package com.zoho.perf;
+package com.benchmark.perf;
 
-import com.zoho.perf.generator.EventDataGenerator;
-import com.zoho.perf.model.CalendarEvent;
-import com.zoho.perf.serializer.CalendarEventSerializer;
-import com.zoho.perf.serializer.SerializerRegistry;
-import com.zoho.perf.util.JsonUtils;
+import com.benchmark.perf.generator.EventDataGenerator;
+import com.benchmark.perf.model.CalendarEvent;
+import com.benchmark.perf.serializer.CalendarEventSerializer;
+import com.benchmark.perf.serializer.SerializerRegistry;
+import com.benchmark.perf.util.JsonUtils;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
