@@ -1,63 +1,108 @@
 package com.zoho.perf.serializer;
 
 import com.zoho.perf.model.CalendarEvent;
-import org.json.JSONObject;
+import com.zoho.perf.util.JsonUtils;
 
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 /**
- * Serializes calendar events using JSONObject with streaming StringBuilder
- * approach.
- * Uses a single temporary JSONObject per event, serializes it using
- * JSONObject's built-in toString(),
- * and appends to StringBuilder to avoid holding large arrays in memory.
+ * Serializes calendar events using a manually managed StringBuilder that is
+ * reused per thread to limit garbage.
  */
-public class StringBuilderEventSerializer {
+public class StringBuilderEventSerializer implements CalendarEventSerializer {
+
+    public static final StringBuilderEventSerializer INSTANCE = new StringBuilderEventSerializer();
 
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
 
-    /**
-     * Serializes a list of calendar events to JSON string using StringBuilder with
-     * JSONObject.
-     *
-     * @param events list of calendar events
-     * @return JSON string representation
-     */
-    public static String serialize(List<CalendarEvent> events) {
-        StringBuilder sb = new StringBuilder(events.size() * 1024); // Estimate initial capacity
+    private StringBuilderEventSerializer() {
+    }
 
+    @Override
+    public String getName() {
+        return "StringBuilder";
+    }
+
+    @Override
+    public String serialize(List<CalendarEvent> events) {
+        StringBuilder sb = ThreadLocalBufferProvider.acquireStringBuilder();
         sb.append('[');
 
         for (int i = 0; i < events.size(); i++) {
             if (i > 0) {
                 sb.append(',');
             }
-
-            CalendarEvent event = events.get(i);
-
-            // Create a temporary JSONObject for this event
-            JSONObject jsonEvent = new JSONObject();
-
-            jsonEvent.put("id", event.getId());
-            jsonEvent.put("title", event.getTitle());
-            jsonEvent.put("description", event.getDescription());
-            jsonEvent.put("startTime", event.getStartTime().format(FORMATTER));
-            jsonEvent.put("endTime", event.getEndTime().format(FORMATTER));
-            jsonEvent.put("location", event.getLocation());
-            jsonEvent.put("attendees", event.getAttendees());
-            jsonEvent.put("recurrenceRule", event.getRecurrenceRule().name());
-            jsonEvent.put("reminders", event.getReminders());
-            jsonEvent.put("timezone", event.getTimezone());
-            jsonEvent.put("organizerEmail", event.getOrganizerEmail());
-            jsonEvent.put("status", event.getStatus().name());
-
-            // Serialize using JSONObject's built-in toString() and append to StringBuilder
-            sb.append(jsonEvent.toString());
+            appendEvent(sb, events.get(i));
         }
 
         sb.append(']');
+        String json = sb.toString();
+        ThreadLocalBufferProvider.releaseStringBuilder(sb);
+        return json;
+    }
 
-        return sb.toString();
+    private void appendEvent(StringBuilder sb, CalendarEvent event) {
+        sb.append('{');
+        appendStringField(sb, "id", event.getId());
+        appendStringField(sb, "title", event.getTitle());
+        appendStringField(sb, "description", event.getDescription());
+        appendStringField(sb, "startTime", event.getStartTime().format(FORMATTER));
+        appendStringField(sb, "endTime", event.getEndTime().format(FORMATTER));
+        appendStringField(sb, "location", event.getLocation());
+        appendArray(sb, "attendees", event.getAttendees());
+        appendStringField(sb, "recurrenceRule", event.getRecurrenceRule().name());
+        appendIntegerArray(sb, "reminders", event.getReminders());
+        appendStringField(sb, "timezone", event.getTimezone());
+        appendStringField(sb, "organizerEmail", event.getOrganizerEmail());
+        appendStringField(sb, "status", event.getStatus().name());
+        trimTrailingComma(sb);
+        sb.append('}');
+    }
+
+    private void appendStringField(StringBuilder sb, String field, String value) {
+        sb.append('"').append(field).append('"').append(':');
+        if (value == null) {
+            sb.append("null");
+        } else {
+            sb.append('"').append(JsonUtils.escapeJson(value)).append('"');
+        }
+        sb.append(',');
+    }
+
+    private void appendArray(StringBuilder sb, String field, List<String> values) {
+        sb.append('"').append(field).append('"').append(':');
+        sb.append('[');
+        for (int i = 0; i < values.size(); i++) {
+            if (i > 0) {
+                sb.append(',');
+            }
+            String value = values.get(i);
+            if (value == null) {
+                sb.append("null");
+            } else {
+                sb.append('"').append(JsonUtils.escapeJson(value)).append('"');
+            }
+        }
+        sb.append(']').append(',');
+    }
+
+    private void appendIntegerArray(StringBuilder sb, String field, List<Integer> values) {
+        sb.append('"').append(field).append('"').append(':');
+        sb.append('[');
+        for (int i = 0; i < values.size(); i++) {
+            if (i > 0) {
+                sb.append(',');
+            }
+            sb.append(values.get(i));
+        }
+        sb.append(']').append(',');
+    }
+
+    private void trimTrailingComma(StringBuilder sb) {
+        int lastIndex = sb.length() - 1;
+        if (lastIndex >= 0 && sb.charAt(lastIndex) == ',') {
+            sb.setLength(lastIndex);
+        }
     }
 }

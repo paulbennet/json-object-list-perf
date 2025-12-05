@@ -2,165 +2,114 @@ package com.zoho.perf;
 
 import com.zoho.perf.generator.EventDataGenerator;
 import com.zoho.perf.model.CalendarEvent;
-import com.zoho.perf.serializer.OrgJsonEventSerializer;
-import com.zoho.perf.serializer.StringBuilderEventSerializer;
+import com.zoho.perf.serializer.CalendarEventSerializer;
+import com.zoho.perf.serializer.SerializerRegistry;
 import com.zoho.perf.util.JsonUtils;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.util.List;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Validation tests to ensure both serializers produce valid, parseable JSON.
+ * Validation tests to ensure every serializer produces valid, parseable JSON.
  */
 class SerializerValidationTest {
 
-    @Test
-    void testOrgJsonSerializerProducesValidJson() {
-        List<CalendarEvent> events = EventDataGenerator.generateEvents(10);
-        String json = OrgJsonEventSerializer.serialize(events);
-
-        assertTrue(JsonUtils.validateJson(json), "org.json serializer should produce valid JSON");
+    static Stream<Arguments> serializers() {
+        return SerializerRegistry.ALL_SERIALIZERS.stream()
+                .map(serializer -> Arguments.of(serializer.getName(), serializer));
     }
 
-    @Test
-    void testStringBuilderSerializerProducesValidJson() {
+    @ParameterizedTest(name = "{0} produces valid JSON")
+    @MethodSource("serializers")
+    void serializerProducesValidJson(String name, CalendarEventSerializer serializer) {
         List<CalendarEvent> events = EventDataGenerator.generateEvents(10);
-        String json = StringBuilderEventSerializer.serialize(events);
-
-        assertTrue(JsonUtils.validateJson(json), "StringBuilder serializer should produce valid JSON");
+        String json = serializer.serialize(events);
+        assertTrue(JsonUtils.validateJson(json), name + " should produce valid JSON");
     }
 
-    @Test
-    void testBothSerializersProduceSameArrayLength() {
+    @ParameterizedTest(name = "{0} preserves event count")
+    @MethodSource("serializers")
+    void serializerProducesCorrectEventCount(String name, CalendarEventSerializer serializer) {
         List<CalendarEvent> events = EventDataGenerator.generateEvents(50);
-
-        String orgJson = OrgJsonEventSerializer.serialize(events);
-        String sbJson = StringBuilderEventSerializer.serialize(events);
-
-        assertEquals(50, JsonUtils.getArrayLength(orgJson), "org.json should have 50 events");
-        assertEquals(50, JsonUtils.getArrayLength(sbJson), "StringBuilder should have 50 events");
+        String json = serializer.serialize(events);
+        assertEquals(50, JsonUtils.getArrayLength(json), name + " should emit 50 events");
     }
 
-    @Test
-    void testOrgJsonFirstEventFields() throws JSONException {
+    @ParameterizedTest(name = "{0} preserves first event fields")
+    @MethodSource("serializers")
+    void serializerPreservesFirstEventFields(String name, CalendarEventSerializer serializer) throws JSONException {
         List<CalendarEvent> events = EventDataGenerator.generateEvents(5);
         CalendarEvent firstEvent = events.get(0);
 
-        String json = OrgJsonEventSerializer.serialize(events);
+        String json = serializer.serialize(events);
         JSONArray jsonArray = new JSONArray(json);
         JSONObject firstJsonEvent = jsonArray.getJSONObject(0);
 
-        assertEquals(firstEvent.getId(), firstJsonEvent.getString("id"));
-        assertEquals(firstEvent.getTitle(), firstJsonEvent.getString("title"));
-        assertEquals(firstEvent.getLocation(), firstJsonEvent.getString("location"));
-        assertEquals(firstEvent.getRecurrenceRule().name(), firstJsonEvent.getString("recurrenceRule"));
-        assertEquals(firstEvent.getStatus().name(), firstJsonEvent.getString("status"));
-        assertEquals(firstEvent.getAttendees().size(), firstJsonEvent.getJSONArray("attendees").length());
-        assertEquals(firstEvent.getReminders().size(), firstJsonEvent.getJSONArray("reminders").length());
+        assertEquals(firstEvent.getId(), firstJsonEvent.getString("id"), name + " id mismatch");
+        assertEquals(firstEvent.getTitle(), firstJsonEvent.getString("title"), name + " title mismatch");
+        assertEquals(firstEvent.getLocation(), firstJsonEvent.getString("location"), name + " location mismatch");
+        assertEquals(firstEvent.getRecurrenceRule().name(), firstJsonEvent.getString("recurrenceRule"),
+                name + " recurrence mismatch");
+        assertEquals(firstEvent.getStatus().name(), firstJsonEvent.getString("status"), name + " status mismatch");
+        assertEquals(firstEvent.getAttendees().size(), firstJsonEvent.getJSONArray("attendees").length(),
+                name + " attendees length mismatch");
+        assertEquals(firstEvent.getReminders().size(), firstJsonEvent.getJSONArray("reminders").length(),
+                name + " reminders length mismatch");
     }
 
-    @Test
-    void testStringBuilderFirstEventFields() throws JSONException {
-        List<CalendarEvent> events = EventDataGenerator.generateEvents(5);
-        CalendarEvent firstEvent = events.get(0);
-
-        String json = StringBuilderEventSerializer.serialize(events);
-        JSONArray jsonArray = new JSONArray(json);
-        JSONObject firstJsonEvent = jsonArray.getJSONObject(0);
-
-        assertEquals(firstEvent.getId(), firstJsonEvent.getString("id"));
-        assertEquals(firstEvent.getTitle(), firstJsonEvent.getString("title"));
-        assertEquals(firstEvent.getLocation(), firstJsonEvent.getString("location"));
-        assertEquals(firstEvent.getRecurrenceRule().name(), firstJsonEvent.getString("recurrenceRule"));
-        assertEquals(firstEvent.getStatus().name(), firstJsonEvent.getString("status"));
-        assertEquals(firstEvent.getAttendees().size(), firstJsonEvent.getJSONArray("attendees").length());
-        assertEquals(firstEvent.getReminders().size(), firstJsonEvent.getJSONArray("reminders").length());
-    }
-
-    @Test
-    void testOrgJsonLastEventFields() throws JSONException {
+    @ParameterizedTest(name = "{0} preserves last event fields")
+    @MethodSource("serializers")
+    void serializerPreservesLastEventFields(String name, CalendarEventSerializer serializer) throws JSONException {
         List<CalendarEvent> events = EventDataGenerator.generateEvents(20);
         CalendarEvent lastEvent = events.get(events.size() - 1);
 
-        String json = OrgJsonEventSerializer.serialize(events);
+        String json = serializer.serialize(events);
         JSONArray jsonArray = new JSONArray(json);
         JSONObject lastJsonEvent = jsonArray.getJSONObject(jsonArray.length() - 1);
 
-        assertEquals(lastEvent.getId(), lastJsonEvent.getString("id"));
-        assertEquals(lastEvent.getTitle(), lastJsonEvent.getString("title"));
-        assertEquals(lastEvent.getOrganizerEmail(), lastJsonEvent.getString("organizerEmail"));
-        assertEquals(lastEvent.getTimezone(), lastJsonEvent.getString("timezone"));
+        assertEquals(lastEvent.getId(), lastJsonEvent.getString("id"), name + " id mismatch");
+        assertEquals(lastEvent.getTitle(), lastJsonEvent.getString("title"), name + " title mismatch");
+        assertEquals(lastEvent.getOrganizerEmail(), lastJsonEvent.getString("organizerEmail"),
+                name + " organizer mismatch");
+        assertEquals(lastEvent.getTimezone(), lastJsonEvent.getString("timezone"), name + " timezone mismatch");
     }
 
-    @Test
-    void testStringBuilderLastEventFields() throws JSONException {
-        List<CalendarEvent> events = EventDataGenerator.generateEvents(20);
-        CalendarEvent lastEvent = events.get(events.size() - 1);
-
-        String json = StringBuilderEventSerializer.serialize(events);
-        JSONArray jsonArray = new JSONArray(json);
-        JSONObject lastJsonEvent = jsonArray.getJSONObject(jsonArray.length() - 1);
-
-        assertEquals(lastEvent.getId(), lastJsonEvent.getString("id"));
-        assertEquals(lastEvent.getTitle(), lastJsonEvent.getString("title"));
-        assertEquals(lastEvent.getOrganizerEmail(), lastJsonEvent.getString("organizerEmail"));
-        assertEquals(lastEvent.getTimezone(), lastJsonEvent.getString("timezone"));
-    }
-
-    @Test
-    void testSpecialCharactersInDescription() throws JSONException {
+    @ParameterizedTest(name = "{0} handles special characters")
+    @MethodSource("serializers")
+    void serializerHandlesSpecialCharacters(String name, CalendarEventSerializer serializer) {
         List<CalendarEvent> events = EventDataGenerator.generateEvents(1);
         CalendarEvent event = events.get(0);
+        event.setDescription("Meeting with \"quotes\", backslash \\, newline \n, and tab \t characters");
 
-        // Modify description to include special characters
-        String specialDesc = "Meeting with \"quotes\", backslash \\, newline \n, and tab \t characters";
-        event.setDescription(specialDesc);
-
-        String orgJson = OrgJsonEventSerializer.serialize(events);
-        String sbJson = StringBuilderEventSerializer.serialize(events);
-
-        // Both should produce valid JSON
-        assertTrue(JsonUtils.validateJson(orgJson), "org.json should handle special characters");
-        assertTrue(JsonUtils.validateJson(sbJson), "StringBuilder should handle special characters");
-
-        // Verify content is preserved (org.json handles escaping internally)
-        JSONArray orgArray = new JSONArray(orgJson);
-        JSONArray sbArray = new JSONArray(sbJson);
-
-        assertNotNull(orgArray.getJSONObject(0).getString("description"));
-        assertNotNull(sbArray.getJSONObject(0).getString("description"));
+        String json = serializer.serialize(events);
+        assertTrue(JsonUtils.validateJson(json), name + " should handle special characters");
+        JSONArray jsonArray = new JSONArray(json);
+        assertNotNull(jsonArray.getJSONObject(0).getString("description"));
     }
 
-    @Test
-    void testEmptyEventList() {
+    @ParameterizedTest(name = "{0} handles empty lists")
+    @MethodSource("serializers")
+    void serializerHandlesEmptyList(String name, CalendarEventSerializer serializer) {
         List<CalendarEvent> events = EventDataGenerator.generateEvents(0);
-
-        String orgJson = OrgJsonEventSerializer.serialize(events);
-        String sbJson = StringBuilderEventSerializer.serialize(events);
-
-        assertEquals("[]", orgJson);
-        assertEquals("[]", sbJson);
-
-        assertTrue(JsonUtils.validateJson(orgJson));
-        assertTrue(JsonUtils.validateJson(sbJson));
+        String json = serializer.serialize(events);
+        assertEquals("[]", json, name + " should emit empty array");
+        assertTrue(JsonUtils.validateJson(json));
     }
 
-    @Test
-    void testLargeEventSet() {
+    @ParameterizedTest(name = "{0} handles large datasets")
+    @MethodSource("serializers")
+    void serializerHandlesLargeEventSet(String name, CalendarEventSerializer serializer) {
         List<CalendarEvent> events = EventDataGenerator.generateEvents(1000);
-
-        String orgJson = OrgJsonEventSerializer.serialize(events);
-        String sbJson = StringBuilderEventSerializer.serialize(events);
-
-        assertTrue(JsonUtils.validateJson(orgJson), "org.json should handle 1000 events");
-        assertTrue(JsonUtils.validateJson(sbJson), "StringBuilder should handle 1000 events");
-
-        assertEquals(1000, JsonUtils.getArrayLength(orgJson));
-        assertEquals(1000, JsonUtils.getArrayLength(sbJson));
+        String json = serializer.serialize(events);
+        assertTrue(JsonUtils.validateJson(json), name + " should handle 1000 events");
+        assertEquals(1000, JsonUtils.getArrayLength(json));
     }
 }

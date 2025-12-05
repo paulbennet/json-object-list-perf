@@ -18,6 +18,14 @@ public class HtmlReportGenerator {
 
     private static final DecimalFormat DF = new DecimalFormat("#,##0.00");
     private static final DecimalFormat DF_INT = new DecimalFormat("#,##0");
+    private static final String[] BASE_COLORS = {
+            "54, 162, 235",
+            "255, 99, 132",
+            "255, 206, 86",
+            "75, 192, 192",
+            "153, 102, 255",
+            "255, 159, 64"
+    };
 
     public static void main(String[] args) throws IOException {
         String inputFile = "results/benchmark-results.json";
@@ -73,12 +81,8 @@ public class HtmlReportGenerator {
             JSONObject params = result.getJSONObject("params");
             String eventCount = params.getString("eventCount");
 
-            String serializerType;
-            if (methodName.contains("OrgJson")) {
-                serializerType = "org.json";
-            } else if (methodName.contains("StringBuilder")) {
-                serializerType = "StringBuilder";
-            } else {
+            String serializerType = resolveSerializerType(methodName);
+            if (serializerType == null) {
                 continue;
             }
 
@@ -105,8 +109,7 @@ public class HtmlReportGenerator {
                 }
             }
 
-            BenchmarkResult br = new BenchmarkResult(serializerType, eventCount, mode, score, scoreUnit, allocRate,
-                    gcCount);
+            BenchmarkResult br = new BenchmarkResult(serializerType, mode, score, scoreUnit, allocRate, gcCount);
 
             dataBySize.putIfAbsent(eventCount, new HashMap<>());
             dataBySize.get(eventCount).put(serializerType + "_" + modeDisplay, br);
@@ -119,51 +122,59 @@ public class HtmlReportGenerator {
         StringBuilder html = new StringBuilder();
         html.append("<div class='summary-section'>\n");
         html.append("<h2>Executive Summary</h2>\n");
+        Set<String> serializers = collectSerializers(dataBySize);
+        Map<String, Double> throughputTotals = new HashMap<>();
+        Map<String, Integer> winCounts = new HashMap<>();
 
-        // Analyze overall winner
-        int orgJsonWins = 0;
-        int stringBuilderWins = 0;
-        double totalOrgJsonThroughput = 0;
-        double totalStringBuilderThroughput = 0;
-
-        for (Map.Entry<String, Map<String, BenchmarkResult>> entry : dataBySize.entrySet()) {
-            Map<String, BenchmarkResult> results = entry.getValue();
-            BenchmarkResult orgJson = results.get("org.json_Throughput");
-            BenchmarkResult stringBuilder = results.get("StringBuilder_Throughput");
-
-            if (orgJson != null && stringBuilder != null) {
-                totalOrgJsonThroughput += orgJson.score;
-                totalStringBuilderThroughput += stringBuilder.score;
-
-                if (orgJson.score > stringBuilder.score) {
-                    orgJsonWins++;
-                } else {
-                    stringBuilderWins++;
+        for (Map<String, BenchmarkResult> results : dataBySize.values()) {
+            BenchmarkResult best = null;
+            for (String serializer : serializers) {
+                BenchmarkResult result = results.get(serializer + "_Throughput");
+                if (result == null) {
+                    continue;
                 }
+                throughputTotals.merge(serializer, result.score, Double::sum);
+                if (best == null || result.score > best.score) {
+                    best = result;
+                }
+            }
+            if (best != null) {
+                winCounts.merge(best.serializer, 1, Integer::sum);
             }
         }
 
-        String winner = stringBuilderWins > orgJsonWins ? "StringBuilder" : "org.json";
-        double improvement = Math
-                .abs((totalStringBuilderThroughput - totalOrgJsonThroughput) / totalOrgJsonThroughput * 100);
+        String winner = throughputTotals.entrySet().stream()
+                .max(Map.Entry.comparingByValue())
+                .map(Map.Entry::getKey)
+                .orElse("N/A");
+
+        double winnerScore = throughputTotals.getOrDefault(winner, 0.0);
+        double runnerScore = throughputTotals.entrySet().stream()
+                .filter(entry -> !entry.getKey().equals(winner))
+                .mapToDouble(Map.Entry::getValue)
+                .max()
+                .orElse(0.0);
+        double improvement = runnerScore == 0 ? 0 : ((winnerScore - runnerScore) / runnerScore) * 100;
 
         html.append("<div class='summary-card'>\n");
         html.append("<h3>Performance Winner: <span class='winner'>").append(winner).append("</span></h3>\n");
-        html.append("<p>Average throughput improvement: <strong>").append(DF.format(improvement))
+        html.append("<p>Average throughput delta vs runner-up: <strong>").append(DF.format(improvement))
                 .append("%</strong></p>\n");
-        html.append("<p>Wins: <strong>").append(winner.equals("StringBuilder") ? stringBuilderWins : orgJsonWins)
-                .append("</strong> out of <strong>").append(dataBySize.size()).append("</strong> test scenarios</p>\n");
+        html.append("<p>Wins: <strong>").append(winCounts.getOrDefault(winner, 0)).append("</strong> out of <strong>")
+                .append(dataBySize.size()).append("</strong> dataset sizes</p>\n");
         html.append("</div>\n");
 
         html.append("<div class='summary-card'>\n");
         html.append("<h3>Key Findings</h3>\n");
         html.append("<ul>\n");
         html.append(
-                "<li><strong>StringBuilder</strong> shows better performance for manual JSON construction with lower memory overhead</li>\n");
+                "<li>Manual <strong>StringBuilder</strong> path now reuses thread-local buffers to minimize temporary allocations</li>\n");
         html.append(
-                "<li><strong>org.json</strong> provides convenience and safety at the cost of some performance</li>\n");
-        html.append("<li>Performance gap increases with larger dataset sizes (10K+ events)</li>\n");
-        html.append("<li>Memory allocation rates favor StringBuilder approach in high-throughput scenarios</li>\n");
+                "<li><strong>Jackson</strong> databind and streaming implementations offer ergonomic vs low-level trade-offs</li>\n");
+        html.append(
+                "<li><strong>Gson</strong> and <strong>Moshi</strong> cover lightweight adapter-based stacks for existing codebases</li>\n");
+        html.append(
+                "<li>Report compares six discrete benchmark methods so teams can filter the strategy they deploy</li>\n");
         html.append("</ul>\n");
         html.append("</div>\n");
 
@@ -184,6 +195,7 @@ public class HtmlReportGenerator {
         html.append("    labels: [");
 
         List<String> labels = new ArrayList<>(dataBySize.keySet());
+        List<String> serializers = sortedSerializers(dataBySize);
         for (int i = 0; i < labels.size(); i++) {
             html.append("'").append(labels.get(i)).append(" events'");
             if (i < labels.size() - 1)
@@ -192,37 +204,27 @@ public class HtmlReportGenerator {
         html.append("],\n");
         html.append("    datasets: [\n");
 
-        // org.json dataset
-        html.append("      {\n");
-        html.append("        label: 'org.json',\n");
-        html.append("        data: [");
-        for (int i = 0; i < labels.size(); i++) {
-            BenchmarkResult br = dataBySize.get(labels.get(i)).get("org.json_Throughput");
-            html.append(br != null ? DF.format(br.score) : "0");
-            if (i < labels.size() - 1)
-                html.append(", ");
+        for (int s = 0; s < serializers.size(); s++) {
+            String serializer = serializers.get(s);
+            html.append("      {\n");
+            html.append("        label: '").append(serializer).append("',\n");
+            html.append("        data: [");
+            for (int i = 0; i < labels.size(); i++) {
+                BenchmarkResult br = dataBySize.get(labels.get(i)).get(serializer + "_Throughput");
+                html.append(br != null ? DF.format(br.score) : "0");
+                if (i < labels.size() - 1)
+                    html.append(", ");
+            }
+            html.append("],\n");
+            html.append("        backgroundColor: '").append(rgba(s, 0.7)).append("',\n");
+            html.append("        borderColor: '").append(rgba(s, 1)).append("',\n");
+            html.append("        borderWidth: 1\n");
+            html.append("      }");
+            if (s < serializers.size() - 1) {
+                html.append(",");
+            }
+            html.append("\n");
         }
-        html.append("],\n");
-        html.append("        backgroundColor: 'rgba(54, 162, 235, 0.7)',\n");
-        html.append("        borderColor: 'rgba(54, 162, 235, 1)',\n");
-        html.append("        borderWidth: 1\n");
-        html.append("      },\n");
-
-        // StringBuilder dataset
-        html.append("      {\n");
-        html.append("        label: 'StringBuilder',\n");
-        html.append("        data: [");
-        for (int i = 0; i < labels.size(); i++) {
-            BenchmarkResult br = dataBySize.get(labels.get(i)).get("StringBuilder_Throughput");
-            html.append(br != null ? DF.format(br.score) : "0");
-            if (i < labels.size() - 1)
-                html.append(", ");
-        }
-        html.append("],\n");
-        html.append("        backgroundColor: 'rgba(255, 99, 132, 0.7)',\n");
-        html.append("        borderColor: 'rgba(255, 99, 132, 1)',\n");
-        html.append("        borderWidth: 1\n");
-        html.append("      }\n");
 
         html.append("    ]\n");
         html.append("  },\n");
@@ -255,6 +257,7 @@ public class HtmlReportGenerator {
         html.append("    labels: [");
 
         List<String> labels = new ArrayList<>(dataBySize.keySet());
+        List<String> serializers = sortedSerializers(dataBySize);
         for (int i = 0; i < labels.size(); i++) {
             html.append("'").append(labels.get(i)).append(" events'");
             if (i < labels.size() - 1)
@@ -263,39 +266,28 @@ public class HtmlReportGenerator {
         html.append("],\n");
         html.append("    datasets: [\n");
 
-        // org.json dataset
-        html.append("      {\n");
-        html.append("        label: 'org.json',\n");
-        html.append("        data: [");
-        for (int i = 0; i < labels.size(); i++) {
-            BenchmarkResult br = dataBySize.get(labels.get(i)).get("org.json_AverageTime");
-            html.append(br != null ? DF.format(br.score) : "0");
-            if (i < labels.size() - 1)
-                html.append(", ");
+        for (int s = 0; s < serializers.size(); s++) {
+            String serializer = serializers.get(s);
+            html.append("      {\n");
+            html.append("        label: '").append(serializer).append("',\n");
+            html.append("        data: [");
+            for (int i = 0; i < labels.size(); i++) {
+                BenchmarkResult br = dataBySize.get(labels.get(i)).get(serializer + "_AverageTime");
+                html.append(br != null ? DF.format(br.score) : "0");
+                if (i < labels.size() - 1)
+                    html.append(", ");
+            }
+            html.append("],\n");
+            html.append("        borderColor: '").append(rgba(s, 1)).append("',\n");
+            html.append("        backgroundColor: '").append(rgba(s, 0.2)).append("',\n");
+            html.append("        fill: true,\n");
+            html.append("        tension: 0.4\n");
+            html.append("      }");
+            if (s < serializers.size() - 1) {
+                html.append(",");
+            }
+            html.append("\n");
         }
-        html.append("],\n");
-        html.append("        borderColor: 'rgba(54, 162, 235, 1)',\n");
-        html.append("        backgroundColor: 'rgba(54, 162, 235, 0.2)',\n");
-        html.append("        fill: true,\n");
-        html.append("        tension: 0.4\n");
-        html.append("      },\n");
-
-        // StringBuilder dataset
-        html.append("      {\n");
-        html.append("        label: 'StringBuilder',\n");
-        html.append("        data: [");
-        for (int i = 0; i < labels.size(); i++) {
-            BenchmarkResult br = dataBySize.get(labels.get(i)).get("StringBuilder_AverageTime");
-            html.append(br != null ? DF.format(br.score) : "0");
-            if (i < labels.size() - 1)
-                html.append(", ");
-        }
-        html.append("],\n");
-        html.append("        borderColor: 'rgba(255, 99, 132, 1)',\n");
-        html.append("        backgroundColor: 'rgba(255, 99, 132, 0.2)',\n");
-        html.append("        fill: true,\n");
-        html.append("        tension: 0.4\n");
-        html.append("      }\n");
 
         html.append("    ]\n");
         html.append("  },\n");
@@ -330,28 +322,20 @@ public class HtmlReportGenerator {
         html.append("</thead>\n");
         html.append("<tbody>\n");
 
+        List<String> serializers = sortedSerializers(dataBySize);
         for (Map.Entry<String, Map<String, BenchmarkResult>> entry : dataBySize.entrySet()) {
             String eventCount = entry.getKey();
             Map<String, BenchmarkResult> results = entry.getValue();
-
-            BenchmarkResult orgJson = results.get("org.json_Throughput");
-            BenchmarkResult stringBuilder = results.get("StringBuilder_Throughput");
-
-            if (orgJson != null) {
+            for (String serializer : serializers) {
+                BenchmarkResult result = results.get(serializer + "_Throughput");
+                if (result == null) {
+                    continue;
+                }
                 html.append("<tr>\n");
                 html.append("<td>").append(eventCount).append("</td>\n");
-                html.append("<td>org.json</td>\n");
-                html.append("<td>").append(DF_INT.format(orgJson.allocRate)).append("</td>\n");
-                html.append("<td>").append(orgJson.gcCount).append("</td>\n");
-                html.append("</tr>\n");
-            }
-
-            if (stringBuilder != null) {
-                html.append("<tr>\n");
-                html.append("<td>").append(eventCount).append("</td>\n");
-                html.append("<td>StringBuilder</td>\n");
-                html.append("<td>").append(DF_INT.format(stringBuilder.allocRate)).append("</td>\n");
-                html.append("<td>").append(stringBuilder.gcCount).append("</td>\n");
+                html.append("<td>").append(serializer).append("</td>\n");
+                html.append("<td>").append(DF_INT.format(result.allocRate)).append("</td>\n");
+                html.append("<td>").append(result.gcCount).append("</td>\n");
                 html.append("</tr>\n");
             }
         }
@@ -401,6 +385,48 @@ public class HtmlReportGenerator {
         return html.toString();
     }
 
+    private static List<String> sortedSerializers(Map<String, Map<String, BenchmarkResult>> dataBySize) {
+        Set<String> serializers = collectSerializers(dataBySize);
+        return new ArrayList<>(serializers);
+    }
+
+    private static Set<String> collectSerializers(Map<String, Map<String, BenchmarkResult>> dataBySize) {
+        Set<String> serializers = new TreeSet<>();
+        for (Map<String, BenchmarkResult> results : dataBySize.values()) {
+            for (BenchmarkResult br : results.values()) {
+                serializers.add(br.serializer);
+            }
+        }
+        return serializers;
+    }
+
+    private static String rgba(int index, double alpha) {
+        String base = BASE_COLORS[index % BASE_COLORS.length];
+        return "rgba(" + base + ", " + alpha + ")";
+    }
+
+    private static String resolveSerializerType(String methodName) {
+        if (methodName.contains("OrgJson")) {
+            return "org.json";
+        }
+        if (methodName.contains("StringBuilder")) {
+            return "StringBuilder";
+        }
+        if (methodName.contains("JacksonDatabind")) {
+            return "JacksonDatabind";
+        }
+        if (methodName.contains("JacksonStreaming")) {
+            return "JacksonStreaming";
+        }
+        if (methodName.contains("Gson")) {
+            return "Gson";
+        }
+        if (methodName.contains("Moshi")) {
+            return "Moshi";
+        }
+        return null;
+    }
+
     private static String getHtmlHeader() {
         String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
 
@@ -447,7 +473,7 @@ public class HtmlReportGenerator {
                 "<div class='container'>\n" +
                 "  <h1>JSON Performance Benchmark Report</h1>\n" +
                 "  <div class='header-info'>\n" +
-                "    <p><strong>Test Scenario:</strong> Calendar Event Serialization (org.json vs StringBuilder)</p>\n"
+                "    <p><strong>Test Scenario:</strong> Calendar Event Serialization (org.json, StringBuilder, Jackson, Gson, Moshi)</p>\n"
                 +
                 "    <p><strong>Generated:</strong> " + timestamp + "</p>\n" +
                 "    <p><strong>JDK:</strong> Java 21 LTS | <strong>Heap:</strong> 8GB</p>\n" +
@@ -466,17 +492,15 @@ public class HtmlReportGenerator {
 
     private static class BenchmarkResult {
         String serializer;
-        String eventCount;
         String mode;
         double score;
         String scoreUnit;
         double allocRate;
         int gcCount;
 
-        BenchmarkResult(String serializer, String eventCount, String mode, double score, String scoreUnit,
+        BenchmarkResult(String serializer, String mode, double score, String scoreUnit,
                 double allocRate, int gcCount) {
             this.serializer = serializer;
-            this.eventCount = eventCount;
             this.mode = mode;
             this.score = score;
             this.scoreUnit = scoreUnit;

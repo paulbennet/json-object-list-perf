@@ -2,6 +2,10 @@ package com.zoho.perf.benchmark;
 
 import com.zoho.perf.generator.EventDataGenerator;
 import com.zoho.perf.model.CalendarEvent;
+import com.zoho.perf.serializer.GsonEventSerializer;
+import com.zoho.perf.serializer.JacksonDatabindEventSerializer;
+import com.zoho.perf.serializer.JacksonStreamingEventSerializer;
+import com.zoho.perf.serializer.MoshiEventSerializer;
 import com.zoho.perf.serializer.OrgJsonEventSerializer;
 import com.zoho.perf.serializer.StringBuilderEventSerializer;
 import org.openjdk.jmh.annotations.*;
@@ -42,7 +46,7 @@ public class CalendarEventBenchmark {
     @Warmup(iterations = 5, time = 1, timeUnit = TimeUnit.SECONDS)
     @Measurement(iterations = 10, time = 1, timeUnit = TimeUnit.SECONDS)
     public String benchmarkOrgJson(Blackhole bh) {
-        String json = OrgJsonEventSerializer.serialize(events);
+        String json = OrgJsonEventSerializer.INSTANCE.serialize(events);
         bh.consume(json);
         return json;
     }
@@ -51,7 +55,43 @@ public class CalendarEventBenchmark {
     @Warmup(iterations = 5, time = 1, timeUnit = TimeUnit.SECONDS)
     @Measurement(iterations = 10, time = 1, timeUnit = TimeUnit.SECONDS)
     public String benchmarkStringBuilder(Blackhole bh) {
-        String json = StringBuilderEventSerializer.serialize(events);
+        String json = StringBuilderEventSerializer.INSTANCE.serialize(events);
+        bh.consume(json);
+        return json;
+    }
+
+    @Benchmark
+    @Warmup(iterations = 5, time = 1, timeUnit = TimeUnit.SECONDS)
+    @Measurement(iterations = 10, time = 1, timeUnit = TimeUnit.SECONDS)
+    public String benchmarkJacksonDatabind(Blackhole bh) {
+        String json = JacksonDatabindEventSerializer.INSTANCE.serialize(events);
+        bh.consume(json);
+        return json;
+    }
+
+    @Benchmark
+    @Warmup(iterations = 5, time = 1, timeUnit = TimeUnit.SECONDS)
+    @Measurement(iterations = 10, time = 1, timeUnit = TimeUnit.SECONDS)
+    public String benchmarkJacksonStreaming(Blackhole bh) {
+        String json = JacksonStreamingEventSerializer.INSTANCE.serialize(events);
+        bh.consume(json);
+        return json;
+    }
+
+    @Benchmark
+    @Warmup(iterations = 5, time = 1, timeUnit = TimeUnit.SECONDS)
+    @Measurement(iterations = 10, time = 1, timeUnit = TimeUnit.SECONDS)
+    public String benchmarkGson(Blackhole bh) {
+        String json = GsonEventSerializer.INSTANCE.serialize(events);
+        bh.consume(json);
+        return json;
+    }
+
+    @Benchmark
+    @Warmup(iterations = 5, time = 1, timeUnit = TimeUnit.SECONDS)
+    @Measurement(iterations = 10, time = 1, timeUnit = TimeUnit.SECONDS)
+    public String benchmarkMoshi(Blackhole bh) {
+        String json = MoshiEventSerializer.INSTANCE.serialize(events);
         bh.consume(json);
         return json;
     }

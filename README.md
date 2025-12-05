@@ -1,13 +1,17 @@
 # JSON Performance Profiling - Calendar Events
 
-Memory and throughput performance comparison between **org.json library** (JSONArray/JSONObject) and **StringBuilder** for serializing large volumes of calendar events in web server scenarios.
+Memory and throughput performance comparison across **org.json**, **thread-local StringBuilder**, **Jackson databind**, **Jackson streaming**, **Gson**, and **Moshi** serializers for large calendar-event payloads in web server scenarios.
 
 ## Overview
 
-This project benchmarks JSON serialization performance for calendar event data using:
+This project benchmarks JSON serialization performance for calendar event data using six distinct strategies:
 
-- **org.json library**: Convenient, type-safe JSONArray and JSONObject API
-- **StringBuilder**: Manual JSON string construction with proper escaping
+- **org.json library**: Convenient, type-safe `JSONArray`/`JSONObject` object model
+- **Thread-local StringBuilder**: Manual JSON string construction with `JsonUtils` escaping and a reusable per-thread buffer to slash transient allocations
+- **Jackson databind**: Cached `ObjectWriter` that converts directly from the event list
+- **Jackson streaming**: `JsonGenerator` writing into a thread-local byte buffer for low-level control
+- **Gson**: Lightweight adapter with a cached `TypeToken` for teams already standardized on Gson
+- **Moshi**: Similar lightweight adapter showcasing another popular JSON stack
 
 The benchmark simulates a web server sending large numbers of calendar events as JSON responses.
 
@@ -16,7 +20,7 @@ The benchmark simulates a web server sending large numbers of calendar events as
 ### Benchmark Type
 
 - **Microbenchmark harness** built with [JMH](https://openjdk.org/projects/code-tools/jmh/) and defined in [CalendarEventBenchmark.java](src/main/java/com/zoho/perf/benchmark/CalendarEventBenchmark.java)
-- **Serialization focus**: measures how quickly a batch of `CalendarEvent` objects can be turned into JSON strings via `OrgJsonEventSerializer` (object model) versus `StringBuilderEventSerializer` (streaming builder)
+- **Serialization focus**: measures how quickly a batch of `CalendarEvent` objects can be turned into JSON strings via six discrete benchmark methods (org.json, thread-local StringBuilder, Jackson databind, Jackson streaming, Gson, Moshi)
 - **Dataset-driven**: uses `EventDataGenerator` to synthesize realistic meetings sized from 100 to 50,000 events so the benchmark reflects production payloads
 - **Dual modes**: each invocation runs in both `Mode.Throughput` (ops/sec) and `Mode.AverageTime` (ms/op) so engineers can compare latency and throughput under identical JVM settings
 
@@ -45,7 +49,7 @@ json-object-list-perf/
 ├── src/main/java/com/zoho/perf/
 │   ├── model/              # CalendarEvent data model
 │   ├── generator/          # Test data generation
-│   ├── serializer/         # OrgJson and StringBuilder serializers
+│   ├── serializer/         # org.json, StringBuilder, Jackson, Gson, Moshi strategies + registry
 │   ├── benchmark/          # JMH benchmark suite
 │   ├── report/             # HTML report generator
 │   └── util/               # JSON utilities (validation, escaping)
@@ -86,6 +90,13 @@ java -jar target/benchmarks.jar -p warmupIterations=3 -p measurementIterations=5
 
 # Run only org.json benchmarks
 java -jar target/benchmarks.jar benchmarkOrgJson
+
+# Run a specific optimized strategy (similar filters exist for every method)
+java -jar target/benchmarks.jar benchmarkStringBuilder
+java -jar target/benchmarks.jar benchmarkJacksonDatabind
+java -jar target/benchmarks.jar benchmarkJacksonStreaming
+java -jar target/benchmarks.jar benchmarkGson
+java -jar target/benchmarks.jar benchmarkMoshi
 ```
 
 ### 3. Run Validation Tests Only
@@ -132,12 +143,12 @@ mvn test
 2. **Throughput Comparison Chart**
 
    - Operations per second (higher is better)
-   - Bar chart comparing both approaches by dataset size
+   - Bar chart comparing every serializer by dataset size, using the same discrete benchmark names you can filter via JMH
 
 3. **Average Time Chart**
 
    - Milliseconds per operation (lower is better)
-   - Line chart showing performance trends
+   - Line chart showing performance trends for all six strategies
 
 4. **Memory Allocation Statistics**
 
@@ -183,9 +194,15 @@ Edit [run-benchmark.sh](run-benchmark.sh) or modify `@Fork` annotation:
 @Fork(value = 2, jvmArgs = {"-Xmx16g", "-Xms16g"})  // 16GB heap
 ```
 
+### Tune Thread-Local Buffer Capacity
+
+- `ThreadLocalBufferProvider` (see [src/main/java/com/zoho/perf/serializer/ThreadLocalBufferProvider.java](src/main/java/com/zoho/perf/serializer/ThreadLocalBufferProvider.java)) seeds 16 KB `StringBuilder`s and 32 KB byte arrays per thread.
+- Increase these constants if you benchmark payloads with extremely large descriptions or want to minimize growth operations.
+- Decrease them if you run many benchmark threads concurrently and want to cap total thread-local memory.
+
 ## Validation Tests
 
-The project includes comprehensive validation tests to ensure both serializers produce valid, parseable JSON:
+The project includes parameterized validation tests to ensure every serializer (org.json, StringBuilder, Jackson databind/streaming, Gson, Moshi) produces valid, parseable JSON:
 
 - ✅ Valid JSON syntax verification
 - ✅ Array length comparison
@@ -198,19 +215,36 @@ Run tests: `mvn test`
 
 ## Expected Performance Characteristics
 
-### StringBuilder Advantages
+### Thread-local StringBuilder
 
-- Lower memory allocation overhead
-- Better performance for large datasets (10K+)
-- Faster string concatenation
-- No intermediate object creation
+- Reuses a per-thread `StringBuilder` via `ThreadLocalBufferProvider`, eliminating most temporary allocations
+- Manual field-by-field rendering with `JsonUtils` escaping keeps GC pressure low on 10K+ payloads
+- Most sensitive to schema changes because formatting logic is handwritten
 
-### org.json Advantages
+### org.json
 
-- Type safety and validation
-- Easier to maintain and debug
-- Built-in escaping and formatting
-- Less error-prone for complex structures
+- Easiest to maintain thanks to `JSONObject` abstractions and built-in escaping
+- Incurs extra allocations for each intermediate array/object, so it lags for enterprise payload sizes
+
+### Jackson Databind
+
+- Cached `ObjectWriter` offers strong ergonomics while keeping conversions fast
+- Honors Java Time types through `jackson-datatype-jsr310` and benefits from thread-local byte buffers
+
+### Jackson Streaming
+
+- Uses `JsonGenerator` directly for maximal control and deterministic output
+- Shares the same thread-local byte buffer optimization, making it the lowest-overhead Jackson variant
+
+### Gson
+
+- Lightweight dependency for apps already on Gson; adapter caching avoids reflection penalties per run
+- No thread-local optimization is required because Gson internally pools writer buffers, but it still benefits from fewer transitive dependencies
+
+### Moshi
+
+- Similar footprint to Gson with an explicit `JsonAdapter` cached for the duration of the JVM
+- Useful for Kotlin/Android-style stacks needing consistent behavior with Moshi-based clients
 
 ## Troubleshooting
 

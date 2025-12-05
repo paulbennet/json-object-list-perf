@@ -10,17 +10,22 @@ import java.util.List;
 /**
  * Serializes calendar events using org.json library (JSONArray and JSONObject).
  */
-public class OrgJsonEventSerializer {
+public class OrgJsonEventSerializer implements CalendarEventSerializer {
+
+    public static final OrgJsonEventSerializer INSTANCE = new OrgJsonEventSerializer();
 
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
 
-    /**
-     * Serializes a list of calendar events to JSON string using org.json library.
-     *
-     * @param events list of calendar events
-     * @return JSON string representation
-     */
-    public static String serialize(List<CalendarEvent> events) {
+    private OrgJsonEventSerializer() {
+    }
+
+    @Override
+    public String getName() {
+        return "org.json";
+    }
+
+    @Override
+    public String serialize(List<CalendarEvent> events) {
         JSONArray jsonArray = new JSONArray();
 
         for (CalendarEvent event : events) {
@@ -33,7 +38,6 @@ public class OrgJsonEventSerializer {
             jsonObject.put("endTime", event.getEndTime().format(FORMATTER));
             jsonObject.put("location", event.getLocation());
 
-            // Attendees array
             JSONArray attendeesArray = new JSONArray();
             for (String attendee : event.getAttendees()) {
                 attendeesArray.put(attendee);
@@ -42,7 +46,6 @@ public class OrgJsonEventSerializer {
 
             jsonObject.put("recurrenceRule", event.getRecurrenceRule().name());
 
-            // Reminders array
             JSONArray remindersArray = new JSONArray();
             for (Integer reminder : event.getReminders()) {
                 remindersArray.put(reminder);
